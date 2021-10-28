@@ -4,49 +4,69 @@ import (
 	"flag"
 	"fmt"
 	"os"
-	"runtime"
 	"strconv"
+	"strings"
 	"syscall"
 	"time"
 )
 
 var (
-	memSize string
+	memSize    string
+	growthTime string
 )
-
-func bToMb(b uint64) uint64 {
-	return b / 1024 / 1024
-}
-
-func PrintMemUsage() {
-	var m runtime.MemStats
-	runtime.ReadMemStats(&m)
-	fmt.Printf("Alloc = %v MiB", bToMb(m.Alloc))
-	fmt.Printf("\tTotalAlloc = %v MiB", bToMb(m.TotalAlloc))
-	fmt.Printf("\tSys = %v MiB", bToMb(m.Sys))
-	fmt.Printf("\tNumGC = %v\n", m.NumGC)
-}
 
 func init() {
 	flag.StringVar(&memSize, "size", "0KB", "")
+	flag.StringVar(&growthTime, "time", "0s", "")
 	flag.Parse()
 }
 
 func main() {
-	length, err := strconv.Atoi(memSize)
+	memSize = strings.ToUpper(memSize)
+	length, err := strconv.Atoi(memSize[:len(memSize)-2])
+	if err != nil {
+		// TODO
+		print(err)
+	}
+	sizeUnit := memSize[len(memSize)-2:]
+	if sizeUnit == "KB" {
+		length *= 1024
+	} else if sizeUnit == "MB" {
+		length *= 1024 * 1024
+	} else if sizeUnit == "GB" {
+		length *= 1024 * 1024 * 1024
+	} else {
+		// TODO
+	}
+
+	growthTime = strings.ToLower(growthTime)
+	timeLine, err := strconv.Atoi(growthTime[:len(growthTime)-1])
+	if err != nil {
+		// TODO
+		print(err)
+	}
+	// timeUnit := growthTime[len(growthTime)]
+	// if timeUnit = 
+	timeLine = int(time.Second) * timeLine
+
+	data, err := syscall.Mmap(-1, 0, length, syscall.PROT_READ|syscall.PROT_WRITE, syscall.MAP_PRIVATE|syscall.MAP_ANONYMOUS)
 	if err != nil {
 		// TODO
 		print(err)
 	}
 
-	data, err := syscall.Mmap(-1, 0, length*1024*1024*1024, syscall.PROT_READ|syscall.PROT_WRITE, syscall.MAP_PRIVATE|syscall.MAP_ANONYMOUS)
-	if err != nil {
-		// TODO
-		print(err)
-	}
-	for i := 0; i < len(data); i += os.Getpagesize() {
+	sysPageSize := os.Getpagesize()
+	duration := time.Duration(timeLine) / time.Duration(length / sysPageSize)
+	fmt.Println(duration, length/sysPageSize)
+	fmt.Println(time.Now())
+	for i := 0; i < length; i += sysPageSize {
+		// fmt.Println(time.Now())
 		data[i] = 1
-	}	
+		time.Sleep(duration)
+	}
+	fmt.Println(time.Now())
+	time.Sleep(time.Microsecond * 1)
+	fmt.Println(time.Now())
 	for {
 		time.Sleep(time.Second * 2)
 	}
