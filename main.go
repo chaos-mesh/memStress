@@ -21,6 +21,39 @@ func init() {
 	flag.Parse()
 }
 
+func linearGrow(data []byte, interval time.Duration, length int, startTime time.Time, timeLine int) {
+	fmt.Println(interval)
+	sysPageSize := os.Getpagesize()
+	minPageQuantity := int(time.Millisecond * 100 / interval)
+	pageCount := 0
+	resLength := length
+	for i := 0; i < length; i += sysPageSize {
+		data[i] = 1
+		if minPageQuantity > 0 {
+			pageCount += 1
+			acculatedPage := pageCount % minPageQuantity
+			if acculatedPage == 0 {
+				time.Sleep(time.Duration(minPageQuantity) * interval)
+				resLength = length - i
+				interval = updateInterval(timeLine - int(time.Since(startTime)), resLength)
+			}
+		} else {
+			time.Sleep(interval)
+		}
+	}
+
+	resTime := time.Duration(resLength / sysPageSize * int(interval))
+	if resTime > 100 * time.Millisecond {
+		time.Sleep(resTime)
+	}
+}
+
+func updateInterval(timeLine int, length int) time.Duration {
+	sysPageSize := os.Getpagesize()
+	interval := time.Duration(timeLine) / time.Duration(length / sysPageSize)
+	return interval
+}
+
 func main() {
 	memSize = strings.ToUpper(memSize)
 	length, err := strconv.Atoi(memSize[:len(memSize)-2])
@@ -45,9 +78,17 @@ func main() {
 		// TODO
 		print(err)
 	}
-	// timeUnit := growthTime[len(growthTime)]
-	// if timeUnit = 
-	timeLine = int(time.Second) * timeLine
+	timeUnit := growthTime[len(growthTime)-1:]
+	if timeUnit == "s" {
+		timeLine = int(time.Second) * timeLine
+	} else if timeUnit == "m" {
+		timeLine = int(time.Minute) * timeLine
+	} else if timeUnit == "h" {
+		timeLine = int(time.Hour) * timeLine
+	} else {
+		// TODO
+	}
+	
 
 	data, err := syscall.Mmap(-1, 0, length, syscall.PROT_READ|syscall.PROT_WRITE, syscall.MAP_PRIVATE|syscall.MAP_ANONYMOUS)
 	if err != nil {
@@ -56,17 +97,15 @@ func main() {
 	}
 
 	sysPageSize := os.Getpagesize()
-	duration := time.Duration(timeLine) / time.Duration(length / sysPageSize)
-	fmt.Println(duration, length/sysPageSize)
-	fmt.Println(time.Now())
-	for i := 0; i < length; i += sysPageSize {
-		// fmt.Println(time.Now())
-		data[i] = 1
-		time.Sleep(duration)
+	interval := time.Duration(timeLine) / time.Duration(length / sysPageSize)
+
+	if interval > time.Nanosecond {
+		linearGrow(data, interval, length, time.Now(), timeLine)
+	} else {
+		for i := 0; i < length; i += sysPageSize {
+			data[i] = 1
+		}
 	}
-	fmt.Println(time.Now())
-	time.Sleep(time.Microsecond * 1)
-	fmt.Println(time.Now())
 	for {
 		time.Sleep(time.Second * 2)
 	}
