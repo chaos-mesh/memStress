@@ -2,10 +2,10 @@ package main
 
 import (
 	"flag"
-	"fmt"
 	"os"
 	"syscall"
 	"time"
+
 	humanize "github.com/dustin/go-humanize"
 )
 
@@ -20,37 +20,33 @@ func init() {
 	flag.Parse()
 }
 
-func linearGrow(data []byte, interval time.Duration, length uint64, startTime time.Time, timeLine time.Duration) {
-	fmt.Println(interval)
-	sysPageSize := os.Getpagesize()
-	minPageQuantity := int(time.Millisecond * 100 / interval)
-	pageCount := 0
-	resLength := length
-	for i := 0; uint64(i) < length; i += sysPageSize {
-		data[i] = 1
-		if minPageQuantity > 0 {
-			pageCount += 1
-			acculatedPage := pageCount % minPageQuantity
-			if acculatedPage == 0 {
-				time.Sleep(time.Duration(minPageQuantity) * interval)
-				resLength = length - uint64(i)
-				interval = updateInterval(timeLine - time.Since(startTime), resLength)
-			}
+func linearGrow(data []byte, length uint64, timeLine time.Duration) {
+	startTime := time.Now()
+	endTime := startTime.Add(timeLine)
+
+	var allocated uint64 = 0
+	pageSize := uint64(syscall.Getpagesize())
+	interval := time.Millisecond * 10
+
+	for {
+		now := time.Now()
+		if now.After(endTime) {
+			now = endTime
+		}
+		expected := length * uint64(now.Sub(startTime).Milliseconds()) / uint64(endTime.Sub(startTime).Milliseconds()) / pageSize
+
+		for i := allocated; uint64(i) < expected; i++ {
+			data[uint64(i)*pageSize] = 0
+		}
+
+		allocated = expected
+		if now.Equal(endTime) {
+			break
 		} else {
 			time.Sleep(interval)
 		}
 	}
 
-	resTime := time.Duration(resLength / uint64(sysPageSize) * uint64(interval))
-	if resTime > 100 * time.Millisecond {
-		time.Sleep(resTime)
-	}
-}
-
-func updateInterval(timeLine time.Duration, length uint64) time.Duration {
-	sysPageSize := uint64(os.Getpagesize())
-	interval := time.Duration(timeLine) / time.Duration(length / sysPageSize)
-	return interval
 }
 
 func main() {
@@ -71,17 +67,15 @@ func main() {
 		print(err)
 	}
 
-	sysPageSize := os.Getpagesize()
-	interval := time.Duration(timeLine) / time.Duration(length / uint64(sysPageSize))
-
-	if interval > time.Nanosecond {
-		linearGrow(data, interval, length, time.Now(), timeLine)
+	if timeLine > time.Nanosecond {
+		linearGrow(data, length, timeLine)
 	} else {
+		sysPageSize := os.Getpagesize()
 		for i := 0; uint64(i) < length; i += sysPageSize {
 			data[i] = 1
 		}
 	}
-	
+
 	for {
 		time.Sleep(time.Second * 2)
 	}
