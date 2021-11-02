@@ -4,10 +4,9 @@ import (
 	"flag"
 	"fmt"
 	"os"
-	"strconv"
-	"strings"
 	"syscall"
 	"time"
+	humanize "github.com/dustin/go-humanize"
 )
 
 var (
@@ -21,91 +20,68 @@ func init() {
 	flag.Parse()
 }
 
-func linearGrow(data []byte, interval time.Duration, length int, startTime time.Time, timeLine int) {
+func linearGrow(data []byte, interval time.Duration, length uint64, startTime time.Time, timeLine time.Duration) {
 	fmt.Println(interval)
 	sysPageSize := os.Getpagesize()
 	minPageQuantity := int(time.Millisecond * 100 / interval)
 	pageCount := 0
 	resLength := length
-	for i := 0; i < length; i += sysPageSize {
+	for i := 0; uint64(i) < length; i += sysPageSize {
 		data[i] = 1
 		if minPageQuantity > 0 {
 			pageCount += 1
 			acculatedPage := pageCount % minPageQuantity
 			if acculatedPage == 0 {
 				time.Sleep(time.Duration(minPageQuantity) * interval)
-				resLength = length - i
-				interval = updateInterval(timeLine - int(time.Since(startTime)), resLength)
+				resLength = length - uint64(i)
+				interval = updateInterval(timeLine - time.Since(startTime), resLength)
 			}
 		} else {
 			time.Sleep(interval)
 		}
 	}
 
-	resTime := time.Duration(resLength / sysPageSize * int(interval))
+	resTime := time.Duration(resLength / uint64(sysPageSize) * uint64(interval))
 	if resTime > 100 * time.Millisecond {
 		time.Sleep(resTime)
 	}
 }
 
-func updateInterval(timeLine int, length int) time.Duration {
-	sysPageSize := os.Getpagesize()
+func updateInterval(timeLine time.Duration, length uint64) time.Duration {
+	sysPageSize := uint64(os.Getpagesize())
 	interval := time.Duration(timeLine) / time.Duration(length / sysPageSize)
 	return interval
 }
 
 func main() {
-	memSize = strings.ToUpper(memSize)
-	length, err := strconv.Atoi(memSize[:len(memSize)-2])
+	length, err := humanize.ParseBytes(memSize)
 	if err != nil {
 		// TODO
 		print(err)
 	}
-	sizeUnit := memSize[len(memSize)-2:]
-	if sizeUnit == "KB" {
-		length *= 1024
-	} else if sizeUnit == "MB" {
-		length *= 1024 * 1024
-	} else if sizeUnit == "GB" {
-		length *= 1024 * 1024 * 1024
-	} else {
-		// TODO
-	}
 
-	growthTime = strings.ToLower(growthTime)
-	timeLine, err := strconv.Atoi(growthTime[:len(growthTime)-1])
+	timeLine, err := time.ParseDuration(growthTime)
 	if err != nil {
 		// TODO
-		print(err)
 	}
-	timeUnit := growthTime[len(growthTime)-1:]
-	if timeUnit == "s" {
-		timeLine = int(time.Second) * timeLine
-	} else if timeUnit == "m" {
-		timeLine = int(time.Minute) * timeLine
-	} else if timeUnit == "h" {
-		timeLine = int(time.Hour) * timeLine
-	} else {
-		// TODO
-	}
-	
 
-	data, err := syscall.Mmap(-1, 0, length, syscall.PROT_READ|syscall.PROT_WRITE, syscall.MAP_PRIVATE|syscall.MAP_ANONYMOUS)
+	data, err := syscall.Mmap(-1, 0, int(length), syscall.PROT_READ|syscall.PROT_WRITE, syscall.MAP_PRIVATE|syscall.MAP_ANONYMOUS)
 	if err != nil {
 		// TODO
 		print(err)
 	}
 
 	sysPageSize := os.Getpagesize()
-	interval := time.Duration(timeLine) / time.Duration(length / sysPageSize)
+	interval := time.Duration(timeLine) / time.Duration(length / uint64(sysPageSize))
 
 	if interval > time.Nanosecond {
 		linearGrow(data, interval, length, time.Now(), timeLine)
 	} else {
-		for i := 0; i < length; i += sysPageSize {
+		for i := 0; uint64(i) < length; i += sysPageSize {
 			data[i] = 1
 		}
 	}
+	
 	for {
 		time.Sleep(time.Second * 2)
 	}
