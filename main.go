@@ -2,6 +2,7 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"os"
 	"syscall"
 	"time"
@@ -12,11 +13,13 @@ import (
 var (
 	memSize    string
 	growthTime string
+	workers    int
 )
 
 func init() {
 	flag.StringVar(&memSize, "size", "0KB", "")
 	flag.StringVar(&growthTime, "time", "0s", "")
+	flag.IntVar(&workers, "workers", 1, "")
 	flag.Parse()
 }
 
@@ -49,22 +52,12 @@ func linearGrow(data []byte, length uint64, timeLine time.Duration) {
 
 }
 
-func main() {
-	length, err := humanize.ParseBytes(memSize)
-	if err != nil {
-		// TODO
-		print(err)
-	}
-
-	timeLine, err := time.ParseDuration(growthTime)
-	if err != nil {
-		// TODO
-	}
-
+func run(length uint64, timeLine time.Duration) {
 	data, err := syscall.Mmap(-1, 0, int(length), syscall.PROT_READ|syscall.PROT_WRITE, syscall.MAP_PRIVATE|syscall.MAP_ANONYMOUS)
 	if err != nil {
 		// TODO
-		print(err)
+		fmt.Println(err.Error())
+		os.Exit(1)
 	}
 
 	if timeLine > time.Nanosecond {
@@ -76,6 +69,26 @@ func main() {
 		}
 	}
 
+	for {
+		time.Sleep(time.Second * 2)
+	}
+}
+
+func main() {
+	length, err := humanize.ParseBytes(memSize)
+	if err != nil {
+		// TODO
+		fmt.Println(err.Error())
+	}
+
+	timeLine, err := time.ParseDuration(growthTime)
+	if err != nil {
+		// TODO
+	}
+
+	for i := 0; i < workers; i++ {
+		go run(length, timeLine)
+	}
 	for {
 		time.Sleep(time.Second * 2)
 	}
