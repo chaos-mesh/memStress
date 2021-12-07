@@ -4,10 +4,12 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"strconv"
 	"syscall"
 	"time"
 
 	humanize "github.com/dustin/go-humanize"
+	psutil "github.com/shirou/gopsutil/mem"
 )
 
 var (
@@ -56,7 +58,7 @@ func run(length uint64, timeLine time.Duration) {
 	data, err := syscall.Mmap(-1, 0, int(length), syscall.PROT_READ|syscall.PROT_WRITE, syscall.MAP_PRIVATE|syscall.MAP_ANONYMOUS)
 	if err != nil {
 		// TODO
-		fmt.Println(err.Error())
+		fmt.Println(err)
 		os.Exit(1)
 	}
 
@@ -75,10 +77,22 @@ func run(length uint64, timeLine time.Duration) {
 }
 
 func main() {
-	length, err := humanize.ParseBytes(memSize)
-	if err != nil {
-		// TODO
-		fmt.Println(err.Error())
+	memInfo, _ := psutil.VirtualMemory()
+	var length uint64
+
+	if memSize[len(memSize)-1] != '%' {
+		var err error
+		length, err = humanize.ParseBytes(memSize)
+		if err != nil {
+			// TODO
+			fmt.Println(err)
+		}
+	} else {
+		percentage, err := strconv.ParseFloat(memSize[0:len(memSize)-1], 64)
+		if err != nil {
+			fmt.Println(err)
+		}
+		length = uint64(float64(memInfo.Total) / 100.0 * percentage)
 	}
 
 	timeLine, err := time.ParseDuration(growthTime)
@@ -89,6 +103,7 @@ func main() {
 	for i := 0; i < workers; i++ {
 		go run(length, timeLine)
 	}
+
 	for {
 		time.Sleep(time.Second * 2)
 	}
