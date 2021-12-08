@@ -67,7 +67,7 @@ func run(length uint64, timeLine time.Duration) {
 	} else {
 		sysPageSize := os.Getpagesize()
 		for i := 0; uint64(i) < length; i += sysPageSize {
-			data[i] = 1
+			data[i] = 0
 		}
 	}
 
