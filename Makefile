@@ -1,2 +1,2 @@
 build:
-	go build main.go -o memStress
+	go build -o memStress main.go

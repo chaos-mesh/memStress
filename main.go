@@ -34,9 +34,9 @@ var (
 )
 
 func init() {
-	flag.StringVar(&memSize, "size", "0KB", "")
-	flag.StringVar(&growthTime, "time", "0s", "")
-	flag.IntVar(&workers, "workers", 1, "")
+	flag.StringVar(&memSize, "size", "0KB", "size of memory you want to allocate")
+	flag.StringVar(&growthTime, "time", "0s", "time to reach the size of memory you allocated")
+	flag.IntVar(&workers, "workers", 1, "number of workers allocating memory")
 	flag.Parse()
 }
 
