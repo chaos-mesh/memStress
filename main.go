@@ -19,6 +19,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"os/exec"
 	"strconv"
 	"syscall"
 	"time"
@@ -31,12 +32,14 @@ var (
 	memSize    string
 	growthTime string
 	workers    int
+	client     bool
 )
 
 func init() {
 	flag.StringVar(&memSize, "size", "0KB", "size of memory you want to allocate")
 	flag.StringVar(&growthTime, "time", "0s", "time to reach the size of memory you allocated")
 	flag.IntVar(&workers, "workers", 1, "number of workers allocating memory")
+	flag.BoolVar(&client, "client", false, "the process runs as a client")
 	flag.Parse()
 }
 
@@ -92,34 +95,47 @@ func run(length uint64, timeLine time.Duration) {
 }
 
 func main() {
-	memInfo, _ := psutil.VirtualMemory()
-	var length uint64
+	if !client {
+		workQueue := make(chan struct{}, workers)
+		for {
+			workQueue <- struct{}{}
+			go func() {
+				err := exec.Command("./memStress", "--size", memSize, "--time", growthTime, "--client", "1").Run()
+				if err != nil {
+					fmt.Println(err)
+				}
+				<-workQueue
+			}()
+			time.Sleep(time.Second)
+		}
 
-	if memSize[len(memSize)-1] != '%' {
-		var err error
-		length, err = humanize.ParseBytes(memSize)
+	} else {
+		memInfo, _ := psutil.VirtualMemory()
+		var length uint64
+
+		if memSize[len(memSize)-1] != '%' {
+			var err error
+			length, err = humanize.ParseBytes(memSize)
+			if err != nil {
+				// TODO
+				fmt.Println(err)
+			}
+		} else {
+			percentage, err := strconv.ParseFloat(memSize[0:len(memSize)-1], 64)
+			if err != nil {
+				fmt.Println(err)
+			}
+			length = uint64(float64(memInfo.Total) / 100.0 * percentage)
+		}
+
+		timeLine, err := time.ParseDuration(growthTime)
 		if err != nil {
 			// TODO
-			fmt.Println(err)
 		}
-	} else {
-		percentage, err := strconv.ParseFloat(memSize[0:len(memSize)-1], 64)
-		if err != nil {
-			fmt.Println(err)
+		run(length, timeLine)
+
+		for {
+			time.Sleep(time.Second * 2)
 		}
-		length = uint64(float64(memInfo.Total) / 100.0 * percentage)
-	}
-
-	timeLine, err := time.ParseDuration(growthTime)
-	if err != nil {
-		// TODO
-	}
-
-	for i := 0; i < workers; i++ {
-		go run(length, timeLine)
-	}
-
-	for {
-		time.Sleep(time.Second * 2)
 	}
 }
