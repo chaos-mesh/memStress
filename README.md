@@ -8,6 +8,8 @@ This is a tool to simulate memory allocation.
 >memStress -h
 
 Usage of ./memStress:
+  -client
+        the process runs as a client
   -size string
         size of memory you want to allocate (default "0KB")
   -time string
