@@ -100,7 +100,8 @@ func main() {
 		for {
 			workQueue <- struct{}{}
 			go func() {
-				err := exec.Command("./memStress", "--size", memSize, "--time", growthTime, "--client", "1").Run()
+				err := exec.Command("./memStress", "--size", memSize, "--workers", fmt.Sprintf("%d", workers),
+					"--time", growthTime, "--client", "1").Run()
 				if err != nil {
 					fmt.Println(err)
 				}
@@ -108,7 +109,6 @@ func main() {
 			}()
 			time.Sleep(time.Second)
 		}
-
 	} else {
 		memInfo, _ := psutil.VirtualMemory()
 		var length uint64
@@ -132,10 +132,6 @@ func main() {
 		if err != nil {
 			// TODO
 		}
-		run(length, timeLine)
-
-		for {
-			time.Sleep(time.Second * 2)
-		}
+		run(length/uint64(workers), timeLine)
 	}
 }
