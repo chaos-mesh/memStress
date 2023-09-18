@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"runtime"
 	"strconv"
 	"syscall"
 	"time"
@@ -97,20 +98,41 @@ func run(length uint64, timeLine time.Duration) {
 func main() {
 	if !client {
 		workQueue := make(chan struct{}, workers)
+
 		for {
 			workQueue <- struct{}{}
+
 			go func() {
-				cmd := exec.Command("memStress", "--size", memSize, "--workers", fmt.Sprintf("%d", workers),
-					"--time", growthTime, "--client", "1")
+				// https://github.com/golang/go/issues/27505
+				// On Linux, pdeathsig will kill the child process when the thread dies,
+				// not when the process dies. runtime.LockOSThread ensures that as long
+				// as this function is executing that OS thread will still be around
+				runtime.LockOSThread()
+				defer runtime.UnlockOSThread()
+
+				command := "memStress"
+				args := []string{
+					"--size", memSize,
+					"--workers", fmt.Sprintf("%d", workers),
+					"--time", growthTime,
+					"--client", "true",
+				}
+
+				cmd := exec.Command(
+					command,
+					args...,
+				)
 				cmd.SysProcAttr = &syscall.SysProcAttr{
 					Pdeathsig: syscall.SIGTERM,
 				}
-				err := cmd.Run()
-				if err != nil {
+
+				if err := cmd.Run(); err != nil {
 					fmt.Println(err)
 				}
+
 				<-workQueue
 			}()
+
 			time.Sleep(time.Second)
 		}
 	} else {
