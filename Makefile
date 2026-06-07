@@ -1,36 +1,39 @@
-GO ?= go
-LDFLAGS ?= -s -w
-VERSION ?= dev
-DIST ?= dist
+# memStress is Linux-only, so every target runs inside a pinned Go container.
+# This builds on any host (incl. macOS) with just Docker, always uses the same
+# Go toolchain, and produces a static linux/amd64 binary. Keep GO_VERSION in
+# sync with go.mod.
+GO_VERSION ?= 1.25.11
+VERSION    ?= dev
+DIST       ?= dist
 
-# <GOARCH>:<release arch name> pairs. The release arch name matches the suffix
-# used by the release tarballs (and expected by chaos-mesh's chaos-daemon image).
-ARCHS := amd64:x86_64 arm64:aarch64
+RUN = docker run --rm --platform linux/amd64 -e CGO_ENABLED=0 \
+	-v "$(CURDIR)":/src -w /src golang:$(GO_VERSION)
 
-.PHONY: build
+.DEFAULT_GOAL := help
+.PHONY: help build vet release clean
+
+help:
+	@echo "make build                   build ./memStress (linux/amd64)"
+	@echo "make release VERSION=v0.3.1  build release tarballs into ./$(DIST)"
+	@echo "make vet                     run go vet"
+	@echo "make clean                   remove build artifacts"
+
 build:
-	$(GO) build -trimpath -ldflags="$(LDFLAGS)" -o memStress main.go
+	$(RUN) go build -trimpath -ldflags="-s -w" -o memStress main.go
 
-.PHONY: vet
 vet:
-	GOOS=linux $(GO) vet ./...
+	$(RUN) go vet ./...
 
-# Cross-compile static linux binaries for every supported arch and package them
-# as dist/memStress_$(VERSION)-<arch>-linux-gnu.tar.gz (each tarball contains a
-# single `memStress` binary at its root).
-.PHONY: release
+# Cross-compile both arches and package each as a tarball containing a single
+# `memStress` binary (named to match what chaos-mesh's chaos-daemon expects).
 release:
-	rm -rf $(DIST)
-	mkdir -p $(DIST)
-	@for pair in $(ARCHS); do \
-		goarch=$${pair%%:*}; arch=$${pair##*:}; \
-		echo "==> building memStress $(VERSION) for linux/$$arch ($$goarch)"; \
-		CGO_ENABLED=0 GOOS=linux GOARCH=$$goarch $(GO) build -trimpath -ldflags="$(LDFLAGS)" -o $(DIST)/memStress main.go; \
-		tar -czf $(DIST)/memStress_$(VERSION)-$$arch-linux-gnu.tar.gz -C $(DIST) memStress; \
-		rm -f $(DIST)/memStress; \
-	done
+	$(RUN) sh -euc 'mkdir -p $(DIST); \
+	  GOARCH=amd64 go build -trimpath -ldflags="-s -w" -o $(DIST)/memStress main.go; \
+	  tar -czf "$(DIST)/memStress_$(VERSION)-x86_64-linux-gnu.tar.gz"  -C $(DIST) memStress; \
+	  GOARCH=arm64 go build -trimpath -ldflags="-s -w" -o $(DIST)/memStress main.go; \
+	  tar -czf "$(DIST)/memStress_$(VERSION)-aarch64-linux-gnu.tar.gz" -C $(DIST) memStress; \
+	  rm -f $(DIST)/memStress'
 	@ls -l $(DIST)
 
-.PHONY: clean
 clean:
 	rm -rf $(DIST) memStress
