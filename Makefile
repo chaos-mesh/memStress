@@ -2,7 +2,7 @@
 # This builds on any host (incl. macOS) with just Docker, always uses the same
 # Go toolchain, and produces a static linux/amd64 binary. Keep GO_VERSION in
 # sync with go.mod.
-GO_VERSION ?= 1.25.11
+GO_VERSION ?= 1.27.4
 VERSION    ?= dev
 DIST       ?= dist
 
