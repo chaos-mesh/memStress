@@ -39,7 +39,6 @@ func init() {
 	flag.StringVar(&growthTime, "time", "0s", "time to reach the size of memory you allocated")
 	flag.IntVar(&workers, "workers", 1, "number of workers allocating memory")
 	flag.BoolVar(&client, "client", false, "the process runs as a client")
-	flag.Parse()
 }
 
 func linearGrow(data []byte, length uint64, timeLine time.Duration) {
@@ -55,7 +54,8 @@ func linearGrow(data []byte, length uint64, timeLine time.Duration) {
 		if now.After(endTime) {
 			now = endTime
 		}
-		expected := length * uint64(now.Sub(startTime).Milliseconds()) / uint64(endTime.Sub(startTime).Milliseconds()) / pageSize
+		progress := float64(now.Sub(startTime)) / float64(timeLine)
+		expected := uint64(float64(length)*progress) / pageSize
 
 		for i := allocated; uint64(i) < expected; i++ {
 			data[uint64(i)*pageSize] = 0
@@ -64,9 +64,8 @@ func linearGrow(data []byte, length uint64, timeLine time.Duration) {
 		allocated = expected
 		if now.Equal(endTime) {
 			break
-		} else {
-			time.Sleep(interval)
 		}
+		time.Sleep(min(interval, time.Until(endTime)))
 	}
 
 }
@@ -94,10 +93,17 @@ func run(length uint64, timeLine time.Duration) {
 }
 
 func main() {
+	flag.Parse()
 	if !client {
 		workQueue := make(chan struct{}, workers)
+		initialWorkers := workers
 		for {
 			workQueue <- struct{}{}
+			if initialWorkers > 0 {
+				initialWorkers--
+			} else {
+				time.Sleep(time.Second)
+			}
 			go func() {
 				cmd := exec.Command("./memStress", "--size", memSize, "--workers", fmt.Sprintf("%d", workers),
 					"--time", growthTime, "--client", "1")
@@ -110,7 +116,6 @@ func main() {
 				}
 				<-workQueue
 			}()
-			time.Sleep(time.Second)
 		}
 	} else {
 		totalMem, err := getTotalMemory()

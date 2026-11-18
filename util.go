@@ -6,7 +6,7 @@ import (
 	"strconv"
 	"strings"
 
-	psutil "github.com/shirou/gopsutil/mem"
+	psutil "github.com/shirou/gopsutil/v4/mem"
 )
 
 const (

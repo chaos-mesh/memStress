@@ -1,0 +1,30 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - master
+    paths: &ci_paths
+      - '**.go'
+      - go.mod
+      - go.sum
+      - Makefile
+      - .github/workflows/ci.yaml
+  pull_request:
+    paths: *ci_paths
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+      - name: Vet
+        run: make vet RUN='env CGO_ENABLED=0'
+      - name: Build
+        run: make build RUN='env CGO_ENABLED=0'
