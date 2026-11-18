@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-11-19
+
 ### Changed
 
 - Upgrade the build toolchain to Go 1.27.4 and update Go dependencies. ([#13](https://github.com/chaos-mesh/memStress/pull/13))
@@ -17,4 +19,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Prevent a divide-by-zero panic when `-time` specifies a positive duration shorter than one millisecond. ([#11](https://github.com/chaos-mesh/memStress/pull/11))
 - Start the initial `-workers` processes concurrently so they can ramp up memory together. ([#12](https://github.com/chaos-mesh/memStress/pull/12))
 
-[unreleased]: https://github.com/chaos-mesh/memStress/compare/v0.3.1...HEAD
+[unreleased]: https://github.com/chaos-mesh/memStress/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/chaos-mesh/memStress/compare/v0.3.1...v0.4.0
