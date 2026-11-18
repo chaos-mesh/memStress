@@ -13,16 +13,35 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
 
       - name: Build release tarballs
         run: make release VERSION="${GITHUB_REF_NAME}"
 
-      - name: Create GitHub release
-        env:
-          GH_TOKEN: ${{ github.token }}
+      - name: Prepare release notes
         run: |
-          gh release create "${GITHUB_REF_NAME}" \
-            --repo "${GITHUB_REPOSITORY}" \
-            --title "${GITHUB_REF_NAME}" \
-            --generate-notes \
-            dist/memStress_${GITHUB_REF_NAME}-*-linux-gnu.tar.gz
+          awk -v tag="$GITHUB_REF_NAME" '
+            /^## / {
+              section = $2
+              if (section == "[" tag "]" || section == "[" substr(tag, 2) "]")
+                release = section
+              next
+            }
+            /^\[[^]]+\]:/ { next }
+            section != "" { notes[section] = notes[section] $0 "\n" }
+            END { printf "%s", notes[release != "" ? release : "[Unreleased]"] }
+          ' CHANGELOG.md > "$RUNNER_TEMP/release-notes.md"
+
+          previous_tag=$(git describe --tags --abbrev=0 --match 'v*' HEAD^)
+          printf '\n**Full Changelog**: %s/%s/compare/%s...%s\n' \
+            "$GITHUB_SERVER_URL" "$GITHUB_REPOSITORY" "$previous_tag" "$GITHUB_REF_NAME" \
+            >> "$RUNNER_TEMP/release-notes.md"
+
+      - name: Create GitHub release
+        uses: softprops/action-gh-release@v3
+        with:
+          name: ${{ github.ref_name }}
+          body_path: ${{ runner.temp }}/release-notes.md
+          files: dist/memStress_${{ github.ref_name }}-*-linux-gnu.tar.gz
+          fail_on_unmatched_files: true
