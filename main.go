@@ -97,8 +97,14 @@ func main() {
 	flag.Parse()
 	if !client {
 		workQueue := make(chan struct{}, workers)
+		initialWorkers := workers
 		for {
 			workQueue <- struct{}{}
+			if initialWorkers > 0 {
+				initialWorkers--
+			} else {
+				time.Sleep(time.Second)
+			}
 			go func() {
 				cmd := exec.Command("memStress", "--size", memSize, "--workers", fmt.Sprintf("%d", workers),
 					"--time", growthTime, "--client", "1")
@@ -111,7 +117,6 @@ func main() {
 				}
 				<-workQueue
 			}()
-			time.Sleep(time.Second)
 		}
 	} else {
 		memInfo, _ := psutil.VirtualMemory()
