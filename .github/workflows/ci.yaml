@@ -4,7 +4,14 @@ on:
   push:
     branches:
       - master
+    paths: &ci_paths
+      - '**.go'
+      - go.mod
+      - go.sum
+      - Makefile
+      - .github/workflows/ci.yaml
   pull_request:
+    paths: *ci_paths
 
 permissions:
   contents: read
