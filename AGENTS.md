@@ -24,4 +24,4 @@ Use Go's standard `testing` package. Put tests in `*_test.go` files and name the
 
 ## Commit & Pull Request Guidelines
 
-Follow recent commit subjects with a short imperative summary and a prefix such as `fix:`, `fix(workers):`, or `chore:`. In pull requests, explain the behavior change, link related issues when available, and report the checks you ran.
+Follow recent commit subjects with a short imperative summary and a prefix such as `fix:`, `fix(workers):`, or `chore:`. Sign off every commit with `git commit -s`. In pull requests, explain the behavior change, link related issues when available, and report the checks you ran.
