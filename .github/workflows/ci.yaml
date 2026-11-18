@@ -19,5 +19,5 @@ jobs:
           go-version-file: go.mod
       - name: Vet
         run: make vet RUN='env CGO_ENABLED=0'
-      - name: Build + package
-        run: make release VERSION=ci
+      - name: Build
+        run: make build RUN='env CGO_ENABLED=0'
