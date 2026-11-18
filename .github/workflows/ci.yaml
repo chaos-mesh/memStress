@@ -18,6 +18,6 @@ jobs:
         with:
           go-version-file: go.mod
       - name: Vet
-        run: CGO_ENABLED=0 go vet ./...
+        run: make vet RUN='env CGO_ENABLED=0'
       - name: Build + package
         run: make release VERSION=ci
