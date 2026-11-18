@@ -25,7 +25,7 @@ import (
 	"time"
 
 	humanize "github.com/dustin/go-humanize"
-	psutil "github.com/shirou/gopsutil/v3/mem"
+	psutil "github.com/shirou/gopsutil/v4/mem"
 )
 
 var (
