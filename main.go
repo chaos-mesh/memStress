@@ -20,12 +20,10 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
-	"strconv"
 	"syscall"
 	"time"
 
 	humanize "github.com/dustin/go-humanize"
-	psutil "github.com/shirou/gopsutil/v4/mem"
 )
 
 var (
@@ -36,7 +34,7 @@ var (
 )
 
 func init() {
-	flag.StringVar(&memSize, "size", "0KB", "size of memory you want to allocate")
+	flag.StringVar(&memSize, "size", "0KB", "total memory to allocate across all workers (e.g. 64MiB)")
 	flag.StringVar(&growthTime, "time", "0s", "time to reach the size of memory you allocated")
 	flag.IntVar(&workers, "workers", 1, "number of workers allocating memory")
 	flag.BoolVar(&client, "client", false, "the process runs as a client")
@@ -71,12 +69,10 @@ func linearGrow(data []byte, length uint64, timeLine time.Duration) {
 
 }
 
-func run(length uint64, timeLine time.Duration) {
+func run(length uint64, timeLine time.Duration) error {
 	data, err := syscall.Mmap(-1, 0, int(length), syscall.PROT_READ|syscall.PROT_WRITE, syscall.MAP_PRIVATE|syscall.MAP_ANONYMOUS)
 	if err != nil {
-		// TODO
-		fmt.Println(err)
-		os.Exit(1)
+		return fmt.Errorf("allocate %d bytes: %w", length, err)
 	}
 
 	if timeLine > time.Nanosecond {
@@ -95,6 +91,17 @@ func run(length uint64, timeLine time.Duration) {
 
 func main() {
 	flag.Parse()
+	length, err := humanize.ParseBytes(memSize)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "invalid --size %q: expected a byte size such as 64MiB (%v)\n", memSize, err)
+		os.Exit(2)
+	}
+	timeLine, err := time.ParseDuration(growthTime)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "invalid --time %q: %v\n", growthTime, err)
+		os.Exit(2)
+	}
+
 	if !client {
 		workQueue := make(chan struct{}, workers)
 		initialWorkers := workers
@@ -108,39 +115,18 @@ func main() {
 			go func() {
 				cmd := exec.Command("memStress", "--size", memSize, "--workers", fmt.Sprintf("%d", workers),
 					"--time", growthTime, "--client", "1")
+				cmd.Stderr = os.Stderr
 				cmd.SysProcAttr = &syscall.SysProcAttr{
 					Pdeathsig: syscall.SIGTERM,
 				}
-				err := cmd.Run()
-				if err != nil {
-					fmt.Println(err)
+				if err := cmd.Run(); err != nil {
+					fmt.Fprintf(os.Stderr, "memStress worker: %v\n", err)
 				}
 				<-workQueue
 			}()
 		}
-	} else {
-		memInfo, _ := psutil.VirtualMemory()
-		var length uint64
-
-		if memSize[len(memSize)-1] != '%' {
-			var err error
-			length, err = humanize.ParseBytes(memSize)
-			if err != nil {
-				// TODO
-				fmt.Println(err)
-			}
-		} else {
-			percentage, err := strconv.ParseFloat(memSize[0:len(memSize)-1], 64)
-			if err != nil {
-				fmt.Println(err)
-			}
-			length = uint64(float64(memInfo.Total) / 100.0 * percentage)
-		}
-
-		timeLine, err := time.ParseDuration(growthTime)
-		if err != nil {
-			// TODO
-		}
-		run(length/uint64(workers), timeLine)
+	} else if err := run(length/uint64(workers), timeLine); err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
 	}
 }

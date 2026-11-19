@@ -18,8 +18,7 @@ This allocates 64 MiB total over five seconds. Each of the two workers allocates
 32 MiB and holds it until you press Ctrl+C. The `PATH` setting lets memStress
 find the executable when it starts its workers.
 
-- `-size` sets the total across all workers. Specify a size such as `64MiB` or a
-  percentage of the total memory reported by Linux, such as `1%`.
+- `-size` sets the total across all workers. Specify a byte size such as `64MiB`.
 - `-time` sets how long it takes to reach the target size. The default, `0s`,
   allocates the memory immediately.
 - `-workers` sets how many processes share the total. The default is `1`.
