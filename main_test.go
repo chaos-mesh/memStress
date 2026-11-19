@@ -16,10 +16,18 @@
 package main
 
 import (
+	"errors"
 	"os"
+	"syscall"
 	"testing"
 	"time"
 )
+
+func TestRunReturnsMappingError(t *testing.T) {
+	if err := run(0, 0); !errors.Is(err, syscall.EINVAL) {
+		t.Fatalf("mapping zero bytes: got %v, want EINVAL", err)
+	}
+}
 
 func TestLinearGrowSubMillisecond(t *testing.T) {
 	pageSize := os.Getpagesize()

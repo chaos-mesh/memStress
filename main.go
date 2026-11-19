@@ -69,12 +69,10 @@ func linearGrow(data []byte, length uint64, timeLine time.Duration) {
 
 }
 
-func run(length uint64, timeLine time.Duration) {
+func run(length uint64, timeLine time.Duration) error {
 	data, err := syscall.Mmap(-1, 0, int(length), syscall.PROT_READ|syscall.PROT_WRITE, syscall.MAP_PRIVATE|syscall.MAP_ANONYMOUS)
 	if err != nil {
-		// TODO
-		fmt.Println(err)
-		os.Exit(1)
+		return fmt.Errorf("allocate %d bytes: %w", length, err)
 	}
 
 	if timeLine > time.Nanosecond {
@@ -98,6 +96,11 @@ func main() {
 		fmt.Fprintf(os.Stderr, "invalid --size %q: expected a byte size such as 64MiB (%v)\n", memSize, err)
 		os.Exit(2)
 	}
+	timeLine, err := time.ParseDuration(growthTime)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "invalid --time %q: %v\n", growthTime, err)
+		os.Exit(2)
+	}
 
 	if !client {
 		workQueue := make(chan struct{}, workers)
@@ -112,21 +115,18 @@ func main() {
 			go func() {
 				cmd := exec.Command("memStress", "--size", memSize, "--workers", fmt.Sprintf("%d", workers),
 					"--time", growthTime, "--client", "1")
+				cmd.Stderr = os.Stderr
 				cmd.SysProcAttr = &syscall.SysProcAttr{
 					Pdeathsig: syscall.SIGTERM,
 				}
-				err := cmd.Run()
-				if err != nil {
-					fmt.Println(err)
+				if err := cmd.Run(); err != nil {
+					fmt.Fprintf(os.Stderr, "memStress worker: %v\n", err)
 				}
 				<-workQueue
 			}()
 		}
-	} else {
-		timeLine, err := time.ParseDuration(growthTime)
-		if err != nil {
-			// TODO
-		}
-		run(length/uint64(workers), timeLine)
+	} else if err := run(length/uint64(workers), timeLine); err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
 	}
 }

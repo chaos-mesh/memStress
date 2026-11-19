@@ -11,6 +11,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Remove percentage values from `-size`. Use a byte size such as `64MiB`. Chaos Daemon converts percentage-based StressChaos settings to bytes.
 
+### Fixed
+
+- Reject invalid `-time` values before starting workers and show the requested size when a worker cannot allocate memory.
+
 ## [0.4.0] - 2026-11-19
 
 ### Changed
