@@ -20,12 +20,10 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
-	"strconv"
 	"syscall"
 	"time"
 
 	humanize "github.com/dustin/go-humanize"
-	psutil "github.com/shirou/gopsutil/v4/mem"
 )
 
 var (
@@ -36,7 +34,7 @@ var (
 )
 
 func init() {
-	flag.StringVar(&memSize, "size", "0KB", "size of memory you want to allocate")
+	flag.StringVar(&memSize, "size", "0KB", "total memory to allocate across all workers (e.g. 64MiB)")
 	flag.StringVar(&growthTime, "time", "0s", "time to reach the size of memory you allocated")
 	flag.IntVar(&workers, "workers", 1, "number of workers allocating memory")
 	flag.BoolVar(&client, "client", false, "the process runs as a client")
@@ -95,6 +93,12 @@ func run(length uint64, timeLine time.Duration) {
 
 func main() {
 	flag.Parse()
+	length, err := humanize.ParseBytes(memSize)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "invalid --size %q: expected a byte size such as 64MiB (%v)\n", memSize, err)
+		os.Exit(2)
+	}
+
 	if !client {
 		workQueue := make(chan struct{}, workers)
 		initialWorkers := workers
@@ -119,24 +123,6 @@ func main() {
 			}()
 		}
 	} else {
-		memInfo, _ := psutil.VirtualMemory()
-		var length uint64
-
-		if memSize[len(memSize)-1] != '%' {
-			var err error
-			length, err = humanize.ParseBytes(memSize)
-			if err != nil {
-				// TODO
-				fmt.Println(err)
-			}
-		} else {
-			percentage, err := strconv.ParseFloat(memSize[0:len(memSize)-1], 64)
-			if err != nil {
-				fmt.Println(err)
-			}
-			length = uint64(float64(memInfo.Total) / 100.0 * percentage)
-		}
-
 		timeLine, err := time.ParseDuration(growthTime)
 		if err != nil {
 			// TODO

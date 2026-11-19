@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Removed
+
+- Remove percentage values from `-size`. Use a byte size such as `64MiB`. Chaos Daemon converts percentage-based StressChaos settings to bytes.
+
 ## [0.4.0] - 2026-11-19
 
 ### Changed
